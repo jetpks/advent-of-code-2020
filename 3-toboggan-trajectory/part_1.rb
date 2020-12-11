@@ -87,7 +87,11 @@
 # Don't try to slice or anything fancy with PoorlyMadeCircularArray#[]
 class PoorlyMadeCircularArray < Array
   def [](index)
-    super(index % (self.count - 1))
+    super(index % self.count)
+  end
+
+  def []=(index, value)
+    super(index % self.count, value)
   end
 end
 
@@ -99,7 +103,15 @@ x, y, hit_tree = 0, 0, 0
 loop do
   x += 3
   y += 1
-  break if y >= rows.count - 1
+  break if y >= rows.count
+  if rows[y][x] == '#'
+    hit_tree += 1
+    rows[y][x] = 'X'
+  else
+    rows[y][x] = 'O'
+  end
+
+  puts rows[y].join
   hit_tree += 1 if rows[y][x] == '#'
 end
 
