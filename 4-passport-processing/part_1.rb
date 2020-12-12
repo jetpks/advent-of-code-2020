@@ -78,15 +78,7 @@
 # 3. Validate & Report
 
 class Passport < Hash
-  REQUIRED_FIELDS = [
-    'byr',
-    'ecl',
-    'eyr',
-    'hcl',
-    'hgt',
-    'iyr',
-    'pid',
-  ]
+  REQUIRED_FIELDS = %w[byr ecl eyr hcl hgt iyr pid].freeze
 
   def ingest_text(passport_data)
     passport_data.split(/\s/).each do |key_value_data|
@@ -104,12 +96,13 @@ class Passport < Hash
   def valid?
     REQUIRED_FIELDS
       .map { |key| key?(key) }
-      .reduce  { |m, r| m && r }
+      .reduce { |m, r| m && r }
   end
 end
 
-puts File.read('input')
+puts File
+  .read('input')
   .split("\n\n")
   .map { |raw| Passport.new.ingest_text(raw) }
-  .select { |passport| passport.valid? }
+  .select(&:valid?)
   .count
