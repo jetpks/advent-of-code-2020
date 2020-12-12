@@ -77,13 +77,7 @@ class SeatLocator
   def col_id
     @col_id ||= COLS.dup.tap do |remaining|
       col_map.chars.each do |direction|
-        half = remaining.count / 2
-        case direction
-        when 'R'
-          remaining.shift(half)
-        when 'L'
-          remaining.pop(half)
-        end
+        traverse_map(%w[R L], remaining, direction)
       end
     end.first
   end
@@ -91,13 +85,7 @@ class SeatLocator
   def row_id
     @row_id ||= ROWS.dup.tap do |remaining|
       row_map.chars.each do |direction|
-        half = remaining.count / 2
-        case direction
-        when 'B'
-          remaining.shift(half)
-        when 'F'
-          remaining.pop(half)
-        end
+        traverse_map(%w[B F], remaining, direction)
       end
     end.first
   end
@@ -105,11 +93,25 @@ class SeatLocator
   def seat_id
     @seat_id ||= row_id * COLS.count + col_id
   end
+
+  def traverse_map(legend, remaining, direction)
+    upper, lower = *legend
+    half = remaining.count / 2
+
+    case direction
+    when upper
+      remaining.shift(half)
+    when lower
+      remaining.pop(half)
+    end
+  end
 end
 
-a = SeatLocator.new('FBFBBFFRLR')
-# require 'pry-byebug'
-# binding.pry
-# p a.col_id
-# p a.row_id
-p a.seat_id
+highest = 0
+File.readlines('input', chomp: true).each do |map|
+  SeatLocator.new(map).tap do |l|
+    highest = l.seat_id if l.seat_id > highest
+  end
+end
+
+p highest
