@@ -113,56 +113,35 @@ class Passport < Hash
 end
 
 class PassportField
+  VALIDATORS = {
+    'byr' => ->(v) { v.to_i.between?(1920, 2002) },
+    'cid' => ->(_v) { true },
+    'ecl' => ->(v) { %w[amb blu brn gry grn hzl oth].include?(v) },
+    'eyr' => ->(v) { v.to_i.between?(2020, 2030) },
+    'hcl' => ->(v) { /^#[0-9a-f]{6}$/.match?(v.to_s) },
+    'iyr' => ->(v) { v.to_i.between?(2010, 2020) },
+    'pid' => ->(v) { /^\d{9}$/.match?(v.to_s) },
+    'hgt' => lambda do |v|
+      case v[-2..-1]
+      when 'cm'
+        v[0..-3].to_i.between?(150, 193)
+      when 'in'
+        v[0..-3].to_i.between?(59, 76)
+      else
+        false
+      end
+    end
+  }.freeze
+
   attr_accessor :type, :value
+
   def initialize(type, value)
     @type = type
     @value = value
   end
 
   def valid?
-    case type
-    when 'byr'
-      # (Birth Year) - four digits; at least 1920 and at most 2002.
-
-      # all integers between 1920 and 2002 are 4 digits, so we don't need to
-      # test that directly
-      value.to_i.between?(1920, 2002)
-    when 'iyr'
-      # (Issue Year) - four digits; at least 2010 and at most 2020.
-      value.to_i.between?(2010, 2020)
-    when 'eyr'
-      # (Expiration Year) - four digits; at least 2020 and at most 2030.
-      value.to_i.between?(2020, 2030)
-    when 'hgt'
-      # (Height) - a number followed by either cm or in:
-      #   If cm, the number must be at least 150 and at most 193.
-      #   If in, the number must be at least 59 and at most 76.
-
-      return false unless value.end_with?('cm', 'in')
-
-      unit = value[-2..-1]
-      numeric_value = value[0..-3].to_i
-
-      if unit == 'cm'
-        numeric_value.between?(150, 193)
-      else
-        numeric_value.between?(59, 76)
-      end
-    when 'hcl'
-      # (Hair Color) - a # followed by exactly six characters 0-9 or a-f.
-      /^#[0-9a-f]{6}$/.match?(value.to_s)
-    when 'ecl'
-      # (Eye Color) - exactly one of: amb blu brn gry grn hzl oth.
-      %w[amb blu brn gry grn hzl oth].include?(value)
-    when 'pid'
-      # (Passport ID) - a nine-digit number, including leading zeroes.
-      /^\d{9}$/.match?(value.to_s)
-    when 'cid'
-      # (Country ID) - ignored, missing or not.
-      true
-    else
-      false
-    end
+    VALIDATORS[type].call(value)
   end
 end
 
