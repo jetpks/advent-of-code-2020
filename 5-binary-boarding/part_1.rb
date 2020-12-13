@@ -95,14 +95,11 @@ class SeatLocator
   end
 
   def traverse_map(legend, remaining, direction)
-    upper, lower = *legend
-    half = remaining.count / 2
-
     case direction
-    when upper
-      remaining.shift(half)
-    when lower
-      remaining.pop(half)
+    when legend.first
+      remaining.shift(remaining.count/2)
+    when legend.last
+      remaining.pop(remaining.count/2)
     end
   end
 end
