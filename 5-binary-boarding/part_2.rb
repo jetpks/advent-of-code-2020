@@ -64,5 +64,5 @@ end
 File
   .readlines('input')
   .map { |map| SeatLocator.new(map) }
-  .sort { |a, b| a.seat_id <=> b.seat_id }
+  .sort_by(&:seat_id)
   .each_slice(2) { |s| p s.first.seat_id + 1 if s.map(&:seat_id).reduce(&:-) != -1 }
