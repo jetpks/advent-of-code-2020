@@ -63,12 +63,20 @@ require_relative '../lib/input'
 # /shrug i'll add it when we need it.
 
 class Bag
-  RULE_PATTERN = /(?<quantity>\d+)\s(?<color>[\s\w]+)\sbags\.?$/.freeze
-  attr_accessor :color, :contains, :contained_by
+  attr_reader :color, :rules, :parents
 
-  def initialize
-    @contains = Set.new
-    @contained_by = Set.new
+  def initialize(color, rules = {})
+    @color = color
+    @parents = []
+    @rules = rules.freeze
+  end
+
+  def children
+    rules.keys
+  end
+
+  def meet_parent(color)
+    @parents << color
   end
 
   def inform_children(universe)
@@ -76,70 +84,79 @@ class Bag
       universe[contained_color].contained_by << color
     end
   end
+end
 
-  def self.from(raw)
-    new.tap do |bag|
-      color_raw, rules_raw = *raw.split('bags contain')
-      bag.color = color_raw.rstrip.sub(' ', '_').to_sym
+class PorterIdentificationError < StandardError; end
+class Porter
+  RULE_PATTERN = /(?<quantity>\d+|no)\s(?<color>[\s\w]+)\sbags?\.?$/.freeze
+  attr_reader :inventory
 
-      rules_raw.split(',').each do |rule|
-        matches = rule.match(RULE_PATTERN)
-        next if matches.nil? || matches['quantity'] == 'no'
+  def initialize
+    @inventory = {}
+  end
 
-        bag.contains << matches['color'].sub(' ', '_').to_sym
+  def map_child_to_parent_relationships
+    inventory.values.each do |bag|
+      binding.pry if bag.is_a? Array
+      bag.children.each do |c|
+        ## DEBUG
+        binding.pry unless inventory.key?(c)
+
+        inventory[c].meet_parent(bag.color)
+      end
+    end
+  end
+
+  def lineage(subject)
+    [].tap do |generations|
+      # make the zeroeth item the subject so the indices match the generation
+      generations << Set.new([subject])
+      # binding.pry
+      loop do
+        last = generations.last
+        break if last.count.zero?
+
+        current = Set.new
+        last.each { |member| current += inventory[member].parents }
+        generations << current
+      end
+    end
+  end
+
+  def ingest(raw)
+    color_raw, rules_raw = *raw.split('bags contain')
+
+    color = parse_color(color_raw)
+    rules = parse_rules(rules_raw)
+
+    inventory[color] = Bag.new(color, rules)
+  end
+
+  def parse_color(color_raw)
+    color_raw.rstrip.sub(' ', '_').to_sym
+  end
+
+  def parse_rules(rules_raw)
+    {}.tap do |rules|
+      rules_raw.split(',').map do |rule_raw|
+        matches = rule_raw.match(RULE_PATTERN)
+
+        if matches.nil?
+          binding.pry
+          raise PorterIdentificationError, "Could not parse rule from '#{rule_raw}'; Matches: #{matches}"
+        end
+
+        next if matches['quantity'] == 'no'
+
+        rules[parse_color(matches['color'])] = matches['quantity']
       end
     end
   end
 end
 
-class BagAncestry
-  attr_reader :community, :subject
-
-  def initialize(community:, subject:)
-    @community = community
-    @seen = Set.new
-    @subject = subject
-  end
-
-  def ancestors
-    require 'pry-byebug'
-    binding.pry
-    @ancestors ||= ascend(Set.new, [subject])
-  end
-
-  def ascend(seen, subjects)
-    subjects.each do |sub|
-      new_ancestors = community[sub].contained_by.reject { |c| seen.include?(c) }
-      next if new_ancestors.count.zero?
-
-      seen += ascend(seen, new_ancestors)
-    end
-    seen
-  end
-
-  private
-
-  attr_reader :seen
-end
-
-bags = {}
-AdventInput
-  .lines
-  .each do |line|
-    bag = Bag.from(line)
-    bags[bag.color] = bag
-  end
-bags.each_value do |bag|
-  bag.inform_children(bags)
-end
-
-# How many bag colors can eventually contain at least one shiny gold bag?
-
-# sounds like we need a graph of contained_by chains connected to :shiny_gold,
-# then count the nodes
-# we're just gonna use an array though.
-#
-# let's call bags[:shiny_gold].contained_by and chuck those in a
-# contains_shiny_gold Array. Then, call contained_by on all of those
-
-p BagAncestry.new(community: bags, subject: :shiny_gold).ancestors.count
+porter = Porter.new
+AdventInput.lines.each { |line| porter.ingest(line) }
+porter.map_child_to_parent_relationships
+# We're not supposed to have to flatten/sort/unique, but this produced the
+# right answer, so we're gonna leave it there.
+p porter.lineage(:shiny_gold).map(&:to_a).flatten.sort.uniq.count - 1
